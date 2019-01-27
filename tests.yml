@@ -11,12 +11,11 @@ match:
   - { p: a, d: a, v: *OK }
   - { p: a, d: b, v: *KO }
   - { p: [1, 2, 3], d: [1, 2, 3], v: *OK }
-  - { p: [_loop_, _i ], d: [1, 2, 3], v: { <<: *OK, _loop_: [ { _i: 1 }, { _i: 2 }, { _i: 3 } ]}}
-  - { p: [_loop_, _i ], d: [1, 2], v: { <<: *OK, _loop_: [ { _i: 1 }, { _i: 2 } ]}}
+  - { p: [ { _: _i } ], d: [1, 2, 3], v: { <<: *OK, _loop_: [ { _i: 1 }, { _i: 2 }, { _i: 3 } ]}}
+  - { p: [ { _: _i } ], d: [1, 2], v: { <<: *OK, _loop_: [ { _i: 1 }, { _i: 2 } ]}}
 
   - p: &ip_match_pattern
-      - _loop_
-      - { ip: _ip, name: _name }
+      - { _: { ip: _ip, name: _name } }
     d: &ip_match_data
       - { ip: 1.1.1.1, name: one }
       - { ip: 1.1.1.2, name: two }

@@ -12,14 +12,13 @@ local mab = {
     else error 'indexes parameter must be an array or an object, got ' + t,
   local isScalar(x) = std.isString(x) || std.isNumber(x) || std.isBoolean(x),
 
-  local meta = '_',
-  local LOOP = meta + 'loop' + meta,
+  local META = '_',
+  local LOOP = META + 'loop' + META,
   local MATCH = 'm',
   local OK = { [MATCH]: true },
   local fail(e) = e + { [MATCH]: false },
   local isFailed(e) = e[MATCH] == false,
-  local isVar(p) = std.isString(p) && std.startsWith(p, meta),
-  local isLoop(p) = isVar(p) && std.endsWith(p, meta),
+  local isVar(p) = std.isString(p) && std.startsWith(p, META),
   local isConstant(p) = !isVar(p),
   local constantKeys(o) = std.filter(isConstant, std.objectFields(o)),
   local varKeys(o) = std.filter(isVar, std.objectFields(o)),
@@ -108,7 +107,8 @@ local mab = {
     if isFailed(comonnConstantMatched) || isFailed(loop) then fail(ret) else ret,
 
   matchArrays_(p, d, e)::
-    if isLoop(p[0]) then self.matchTop(LOOP, self.matchVarArrays(p[1], d, e), e)
+    local isArrayLoop(x) = std.isObject(x) && std.length(x) == 1 && std.objectFields(x)[0] == META;
+    if isArrayLoop(p[0]) then self.matchTop(LOOP, self.matchVarArrays(p[0][META], d, e), e)
     else self.matchConstantArrays(p, d, e),
 
   matchConstantArrays_(p, d, e)::
