@@ -23,16 +23,26 @@ local mab = {
   local constantKeys(o) = std.filter(isConstant, std.objectFields(o)),
   local varKeys(o) = std.filter(isVar, std.objectFields(o)),
   local isDefinedVar(x, e) = std.objectHas(e, x),
+  local isArrayLoop(x) = std.isObject(x) && std.length(x) == 1 && std.objectFields(x)[0] == META,
+  local isBindArrayLoop(x) = 
+    if std.isObject(x) && std.length(x) == 1 then
+      local k = std.objectFields(x)[0];
+      if std.startsWith(k, META) && std.endsWith(k, META) then true else false
+   else false,
+  local bindArrayLoopVar(x) =
+    local k = std.objectFields(x)[0];
+    std.substr(k, 0, std.length(k) - 1),
+  local bindArrayLoopPattern(x) = x[std.objectFields(x)[0]],
 
   // trace
 
   local traces = {
     none: [],
-    one: [ 'cleanEnv' ],
-    two: [ 'bindLoop', 'matchTop' ],
+    one: [ 'matchVarObjects' ],
+    two: [ 'matchObjects', 'matchVarObjects' ],
     some: [ 'matchAndBind', 'matchTop', 'bind' ],
-    match: [ 'matchTop', 'matchVar', 'matchObject', 'matchVarObject', 'matchArray', 'matchConstantArray', 'matchVarArray' ],
-    bind: [ 'bind', 'bindConstantArray', 'bindVarArray', 'bindConstantObject', 'bindVarObject', 'bindLoop' ],
+    match: [ 'matchTop', 'matchVar', 'matchObjects', 'matchVarObjects', 'matchArrays', 'matchConstantArrays', 'matchVarArray' ],
+    bind: [ 'bind', 'bindConstantArrays', 'bindVarArrays', 'bindConstantObjects', 'bindVarObjects', 'bindLoop' ],
     all: [ f for f in std.objectFieldsAll($) if std.isFunction($[f]) == true ],
   },
   local traced = { [f]: null for f in std.set(traces.none) },
@@ -50,7 +60,7 @@ local mab = {
  
   bind(p, e):: trace(traced, self.bind_, [ 'bind', 'p', 'e'], [p, e]),
   bindConstantArray(p, e):: trace(traced, self.bindConstantArray_, [ 'bindConstantArray', 'p', 'e'], [p, e]),
-  bindVarArray(p, e):: trace(traced, self.bindVarArray_, [ 'bindVarArray', 'p', 'e'], [p, e]),
+  bindVarArray(p, v, e):: trace(traced, self.bindVarArray_, [ 'bindVarArray', 'p', 'v', 'e'], [p, v, e]),
   bindConstantObject(p, e):: trace(traced, self.bindConstantObject_, [ 'bindConstantObject', 'p', 'e'], [p, e]),
   bindVarObject(p, e):: trace(traced, self.bindVarObject_, [ 'bindVarObject', 'p', 'e'], [p, e]),
   bindLoop(v, e):: trace(traced, self.bindLoop_, [ 'bindLoop', 'v', 'e'], [v, e]),
@@ -104,9 +114,15 @@ local mab = {
         dataKeysOnly);
     local loop = self.matchTop(LOOP, loopEnv, env);
     local ret = comonnConstantMatched + loop;
-    if isFailed(comonnConstantMatched) || isFailed(loop) then fail(ret) else ret,
+    if constantPatKeys != comonnConstantKeys || isFailed(comonnConstantMatched) || isFailed(loop)
+      then fail(ret) else ret,
 
   matchArrays_(p, d, e)::
+    // local isArrayLoop(x) = std.isObject(x) && std.length(x) == 1 && std.objectFields(x)[0] == META;
+    if isArrayLoop(p[0]) then self.matchTop(LOOP, self.matchVarArrays(p[0][META], d, e), e)
+    else self.matchConstantArrays(p, d, e),
+
+  _matchArrays_(p, d, e)::
     local isArrayLoop(x) = std.isObject(x) && std.length(x) == 1 && std.objectFields(x)[0] == META;
     if isArrayLoop(p[0]) then self.matchTop(LOOP, self.matchVarArrays(p[0][META], d, e), e)
     else self.matchConstantArrays(p, d, e),
@@ -126,6 +142,19 @@ local mab = {
     if isScalar(p) then
       if isVar(p) then e[p] else p
     else if std.isArray(p) then
+      if isBindArrayLoop(p[0]) then
+        // self.bindVarArray(bindArrayLoopVar(p[0]), e)
+        self.bindVarArray(bindArrayLoopPattern(p[0]), bindArrayLoopVar(p[0]), e)
+      else self.bindConstantArray(p, e)
+    else if std.isObject(p) then
+      if std.filter(isVar, std.objectFields(p)) == [] then self.bindConstantObject(p, e)
+      else self.bindVarObject(p, e)
+    else error 1,
+
+  _bind_(p, e):: 
+    if isScalar(p) then
+      if isVar(p) then e[p] else p
+    else if std.isArray(p) then
       if isVar(p[0]) then self.bindVarArray(p, e)
       else self.bindConstantArray(p, e)
     else if std.isObject(p) then
@@ -135,7 +164,12 @@ local mab = {
 
   bindConstantArray_(p, e):: std.map(function(i) self.bind(i, e), p),
 
-  bindVarArray_(p, e):: [ self.bind(p[0], i) for i in e[LOOP] ],
+  bindVarArray_(p, v, e)::
+    [
+      self.bind(p, ne) for ne in self.bindLoop(v, e)
+    ],
+
+  _bindVarArray_(p, e):: [ self.bind(p[0], i) for i in e[LOOP] ],
 
   bindConstantObject_(p, e):: std.mapWithKey(function(_, v) self.bind(v, e), p),
 

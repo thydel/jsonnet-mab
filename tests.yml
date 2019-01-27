@@ -8,11 +8,14 @@ macros:
 
 match:
 
+  # - { p: 1, d: 2, v: *OK }
+
   - { p: a, d: a, v: *OK }
   - { p: a, d: b, v: *KO }
   - { p: [1, 2, 3], d: [1, 2, 3], v: *OK }
   - { p: [ { _: _i } ], d: [1, 2, 3], v: { <<: *OK, _loop_: [ { _i: 1 }, { _i: 2 }, { _i: 3 } ]}}
   - { p: [ { _: _i } ], d: [1, 2], v: { <<: *OK, _loop_: [ { _i: 1 }, { _i: 2 } ]}}
+  - { p: { a: _a, _b: _c }, d: { a: 1, b: 2, c: 3 }, v: {_a: 1, _loop_: [{_b: b, _c: 2}, {_b: c, _c: 3}], m: true} }
 
   - p: &ip_match_pattern
       - { _: { ip: _ip, name: _name } }
@@ -27,18 +30,55 @@ match:
         - { _ip: 1.1.1.2, _name: two }
         - { _ip: 1.1.1.3, _name: three }
 
+  - d:
+      a: { x: 1, y: 2 }
+      b: { x: 3, y: 4 }
+    p:
+      _b: { x: _x, y: _y }
+    v: {_loop_: [{_b: a, _x: 1, _y: 2}, {_b: b, _x: 3, _y: 4}], m: true}
+
+  - d:
+      h: foo
+      a: { x: 1, y: 2 }
+      b: { x: 3, y: 4 }
+      t: bar
+    p:
+      h: _h
+      _b: { x: _x, y: _y }
+      t: _t
+    v: {_h: foo, _loop_: [{_b: a, _x: 1, _y: 2}, {_b: b, _x: 3, _y: 4}], _t: bar, m: true }
+
+  - d:
+      a: { x: 1, y: 2 }
+      b: { x: 3, y: 4 }
+    p:
+      z: 1
+      _b: { x: _x, y: _y }
+    v: {_loop_: [{_b: a, _x: 1, _y: 2}, {_b: b, _x: 3, _y: 4}], m: false}
+
+
 bind:
 
+  - p: [ { _x_: _x } ]
+    e: { _loop_: [ { _x: 1 }, { _x: 2 }, { _x: 3 } ] }
+    v: [ 1, 2, 3 ]
+
+#  - p: [ { _x_: { a: [ _x, _x ] } } ]
+#    e: { loop_: [ { _x: 1 }, { _x: 2 }, { _x: 4 } ] }
+#    v: [ 1, 2, 3 ]
+
+#  - { p: 0, e: {}, v: null}
+
   - p: &ip_bind_pattern
-      names: [ _name ]
-      ips: [ _ip ]
+      names: [ { _name_: _name } ]
+      ips: [ { _ip_: _ip } ]
       by_name:
         _name: { name: _name, ip: _ip }
       by_ip:
         _ip: { name: _name, ip: _ip }
     e:
       _loop_:
-        - { _ip: 1.1.1.1, _name: one, alias: [ foo, bar ] }
+        - { _ip: 1.1.1.1, _name: one }
         - { _ip: 1.1.1.2, _name: two }
         - { _ip: 1.1.1.3, _name: three }
     v: &ip_bound_data
@@ -88,6 +128,19 @@ matchAndBind:
     m: *ip_match_pattern
     b: *ip_bind_pattern
     v: *ip_bound_data
+
+#  - d:
+#      h: foo
+#      a: { x: 1, y: 2 }
+#      b: { x: 3, y: 4 }
+#      t: bar
+#    m:
+#      h: _h
+#      _b: { x: _x, y: _y }
+#      t: _t
+#    b:
+#      # - [ _h, _t ]
+#      - { _b: { n: _b, x: _x, y: _y } }
 
 bind_hide:
 
